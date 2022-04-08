@@ -14,7 +14,7 @@ j0 = delta * state0.dddq;
 j1 = delta * state1.dddq;
 T = 0.001;
 
-% Manually Define the Limitations of States
+
 v_max_ = 5;
 a_max_ = 20;
 j_max_ = 100;
