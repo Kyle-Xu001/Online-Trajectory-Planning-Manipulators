@@ -1,34 +1,21 @@
 clc;clear;
 
-% DH参数定义
-d     = [ 520,      0,   0,    660,     0,    115]; 
-a     = [   0,    100, 680,     80,     0,      0];
-alpha = [   0,  -pi/2,   0,  -pi/2,  pi/2,  -pi/2];
+% Call the robot initialization function
+robot = robotInit();
+axis = 6;
 
-% 确定机器人轴数
-axis = size(d,2);
-
-% 建立机器人模型
-%         theta    d        a        alpha
-L = Link([  0     d(1)     a(1)     alpha(1)],'modified');
-for i = 2:axis
-    eval(['L',num2str(i),'=Link([0     d(i)       a(i)       alpha(i)],"modified");'])
-    L = eval(['L + L',num2str(i)]);
-end
-robot=SerialLink(L,'name','XB12');
-
-% 定义轴空间的初始姿态，以及目标点位置
+% Define the initial configuration and Start Point
 q1 = [0 -1.57 0 0 1.57 0];
 tf = robot.fkine(q1);
 p1 = [  tf.t(1)  tf.t(2)  tf.t(3)    0     0     0];
 
-num = 4500; % 迭代次数（即运动总时长）
-lambda = 1e-6;% 误差系数（用于建立雅克比矩阵的伪逆）
-k = 8; % 比例系数
+num = 4500; % Iteration Times（Moving Time）
+lambda = 1e-6; % Error Coefficient（used for pesudo-inverse of Jacobian Matrix）
+k = 8; % Partial Coefficient
 n = 1;
 
 
-% 定义机器人关节配置参数
+% Define the joint configuration limitations
 j_min = -100;
 j_max =  100;
 a_max =   20;
@@ -45,7 +32,7 @@ q_(1,:) = q1;
 p_(1,1:3) = [p1(1), p1(2), p1(3)];
 
 for j = 2:num
-    % 移动目标点定义
+    % Define the Target Points
     if j <= 4000
         p2 = [560+150*0.001*j, 600-250*j*0.001, 750-0.001*j*50, 0, 0, 0];
         pd = [150;-250;-50;0;0;0];
@@ -60,7 +47,7 @@ for j = 2:num
     dq = transpose(J_inverse*(pd+k*delta_p));
 
     
-    % 最大/最小速度限制，等比例缩小至范围内；
+    % Constraints on velocity, to resize the sped into limitations
     for i = 1:axis
         if dq(i) > v_max || dq(i) < v_min
             delta = max(abs(dq/v_max));
@@ -70,7 +57,7 @@ for j = 2:num
     end
     dq = dq/delta;
     
-    % 最大/最小加速度限制，当超过加速度限制时，速度按每个周期所能达到的极限加速度进行变化；
+     % Constraints on acceleration, choose the maximum acceleration
     for i = 1:axis
         if (dq(i) - dq_(j-1,i))/0.001 > a_max
             dq(i) = dq_(j-1,i) + a_max * 0.001;
@@ -80,14 +67,15 @@ for j = 2:num
     end
     
    
-    % 更新当前点笛卡尔坐标位置及轴空间坐标位置
+    % Update current Cartesian Coordinates
+    % Update Configuration Coordinates
     q1 = q1 + dq * 0.001;
     p = robot.fkine(q1);
     p1(1) = p.t(1);
     p1(2) = p.t(2);
     p1(3) = p.t(3);
     
-    % 记录当前点笛卡尔坐标位置及轴空间坐标位置
+    % Record current Cartesian Coordinates and Configuration Coordinates 
     q_(j,:) = q1;
     dq_(j,:) = dq;
     ddq_(j,:) = (dq_(j,:) - dq_(j-1,:))/0.001;
@@ -97,64 +85,64 @@ end
 
 figure(1)
 subplot(6,1,1)
-plot(0.001*(1:num),dq_(:,1));xlabel('时间/s');ylabel('速度/rad·s^{-1}');
+plot(0.001*(1:num),dq_(:,1));xlabel('Time/s');ylabel('Speed/rad·s^{-1}');
 subplot(6,1,2)
-plot(0.001*(1:num),dq_(:,2));xlabel('时间/s');ylabel('速度/rad·s^{-1}');
+plot(0.001*(1:num),dq_(:,2));xlabel('Time/s');ylabel('Speed/rad·s^{-1}');
 subplot(6,1,3)
-plot(0.001*(1:num),dq_(:,3));xlabel('时间/s');ylabel('速度/rad·s^{-1}');
+plot(0.001*(1:num),dq_(:,3));xlabel('Time/s');ylabel('Speed/rad·s^{-1}');
 subplot(6,1,4)
-plot(0.001*(1:num),dq_(:,4));xlabel('时间/s');ylabel('速度/rad·s^{-1}');
+plot(0.001*(1:num),dq_(:,4));xlabel('Time/s');ylabel('Speed/rad·s^{-1}');
 subplot(6,1,5)
-plot(0.001*(1:num),dq_(:,5));xlabel('时间/s');ylabel('速度/rad·s^{-1}');
+plot(0.001*(1:num),dq_(:,5));xlabel('Time/s');ylabel('Speed/rad·s^{-1}');
 subplot(6,1,6)
-plot(0.001*(1:num),dq_(:,6));xlabel('时间/s');ylabel('速度/rad·s^{-1}');
+plot(0.001*(1:num),dq_(:,6));xlabel('Time/s');ylabel('Speed/rad·s^{-1}');
 
 figure(2)
 subplot(6,1,1)
-plot(0.001*(1:num),q_(:,1));xlabel('时间/s');ylabel('位置/rad');
+plot(0.001*(1:num),q_(:,1));xlabel('Time/s');ylabel('Angle/rad');
 subplot(6,1,2)
-plot(0.001*(1:num),q_(:,2));xlabel('时间/s');ylabel('位置/rad');
+plot(0.001*(1:num),q_(:,2));xlabel('Time/s');ylabel('Angle/rad');
 subplot(6,1,3)
-plot(0.001*(1:num),q_(:,3));xlabel('时间/s');ylabel('位置/rad');
+plot(0.001*(1:num),q_(:,3));xlabel('Time/s');ylabel('Angle/rad');
 subplot(6,1,4)
-plot(0.001*(1:num),q_(:,4));xlabel('时间/s');ylabel('位置/rad');
+plot(0.001*(1:num),q_(:,4));xlabel('Time/s');ylabel('Angle/rad');
 subplot(6,1,5)
-plot(0.001*(1:num),q_(:,5));xlabel('时间/s');ylabel('位置/rad');
+plot(0.001*(1:num),q_(:,5));xlabel('Time/s');ylabel('Angle/rad');
 subplot(6,1,6)
-plot(0.001*(1:num),q_(:,6));xlabel('时间/s');ylabel('位置/rad');
+plot(0.001*(1:num),q_(:,6));xlabel('Time/s');ylabel('Angle/rad');
 
 figure(3)
 subplot(6,1,1)
-plot(0.001*(1:num),ddq_(:,1));xlabel('时间/s');ylabel('加速度/rad·s^{-2}');
+plot(0.001*(1:num),ddq_(:,1));xlabel('Time/s');ylabel('Acceleration/rad·s^{-2}');
 subplot(6,1,2)
-plot(0.001*(1:num),ddq_(:,2));xlabel('时间/s');ylabel('加速度/rad·s^{-2}');
+plot(0.001*(1:num),ddq_(:,2));xlabel('Time/s');ylabel('Acceleration/rad·s^{-2}');
 subplot(6,1,3)
-plot(0.001*(1:num),ddq_(:,3));xlabel('时间/s');ylabel('加速度/rad·s^{-2}');
+plot(0.001*(1:num),ddq_(:,3));xlabel('Time/s');ylabel('Acceleration/rad·s^{-2}');
 subplot(6,1,4)
-plot(0.001*(1:num),ddq_(:,4));xlabel('时间/s');ylabel('加速度/rad·s^{-2}');
+plot(0.001*(1:num),ddq_(:,4));xlabel('Time/s');ylabel('Acceleration/rad·s^{-2}');
 subplot(6,1,5)
-plot(0.001*(1:num),ddq_(:,5));xlabel('时间/s');ylabel('加速度/rad·s^{-2}');
+plot(0.001*(1:num),ddq_(:,5));xlabel('Time/s');ylabel('Acceleration/rad·s^{-2}');
 subplot(6,1,6)
-plot(0.001*(1:num),ddq_(:,6));xlabel('时间/s');ylabel('加速度/rad·s^{-2}');
+plot(0.001*(1:num),ddq_(:,6));xlabel('Time/s');ylabel('Acceleration/rad·s^{-2}');
 
 figure(4)
 subplot(6,1,1)
-plot(0.001*(1:num),p_(:,1));xlabel('时间/s');ylabel('X位置/mm');
+plot(0.001*(1:num),p_(:,1));xlabel('Time/s');ylabel('X Position/mm');
 subplot(6,1,2)
-plot(0.001*(1:num),p_(:,2));xlabel('时间/s');ylabel('Y位置/mm');
+plot(0.001*(1:num),p_(:,2));xlabel('Time/s');ylabel('Y Position/mm');
 subplot(6,1,3)
-plot(0.001*(1:num),p_(:,3));xlabel('时间/s');ylabel('Z位置/mm');
+plot(0.001*(1:num),p_(:,3));xlabel('Time/s');ylabel('Z Position/mm');
 subplot(6,1,4)
-plot(0.001*(1:num),p_(:,4));xlabel('时间/s');ylabel('X位置差/mm');
+plot(0.001*(1:num),p_(:,4));xlabel('Time/s');ylabel('X Error/mm');
 subplot(6,1,5)
-plot(0.001*(1:num),p_(:,5));xlabel('时间/s');ylabel('Y位置差/mm');
+plot(0.001*(1:num),p_(:,5));xlabel('Time/s');ylabel('Y Error/mm');
 subplot(6,1,6)
-plot(0.001*(1:num),p_(:,6));xlabel('时间/s');ylabel('Z位置差/mm');
+plot(0.001*(1:num),p_(:,6));xlabel('Time/s');ylabel('Z Error/mm');
 
 figure(5)
 plot3(p_(:,1),p_(:,2),p_(:,3),560+150*0.001*(1:4000), 600-250*0.001*(1:4000), 750-0.001*(1:4000)*50)
 xlabel('x/mm');ylabel('y/mm');zlabel('z/mm')
-legend('末端执行器轨迹','目标点轨迹')
+legend('End Effector Trajectory','Goal Trajectory')
 grid on
 
 
